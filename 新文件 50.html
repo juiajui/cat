@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>時間排序網頁</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+<body>
+    <h1>時間排序網頁</h1>
+    <form id="timeForm">
+        <label for="name">名稱：</label>
+        <input type="text" id="name" name="name" required>
+        <label for="hours">小時：</label>
+        <select id="hours" name="hours">
+            <!-- 小時選項 -->
+        </select>
+        <label for="minutes">分鐘：</label>
+        <select id="minutes" name="minutes">
+            <!-- 分鐘選項 -->
+        </select>
+        <label for="seconds">秒數：</label>
+        <select id="seconds" name="seconds">
+            <!-- 秒數選項 -->
+        </select>
+        <button type="button" onclick="addEntry()">新增</button>
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>名稱</th>
+                <th>輸入的時間</th>
+                <th>現在時間+輸入時間</th>
+            </tr>
+        </thead>
+        <tbody id="timeTable">
+        </tbody>
+    </table>
+
+    <script>
+        // 初始化選項
+        function initSelectOptions() {
+            const hours = document.getElementById('hours');
+            const minutes = document.getElementById('minutes');
+            const seconds = document.getElementById('seconds');
+
+            for (let i = 0; i < 9; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i;
+                hours.appendChild(option);
+            }
+
+            for (let i = 0; i < 60; i++) {
+                const optionM = document.createElement('option');
+                const optionS = document.createElement('option');
+                optionM.value = optionS.value = i;
+                optionM.textContent = optionS.textContent = i;
+                minutes.appendChild(optionM);
+                seconds.appendChild(optionS);
+            }
+        }
+
+        function addEntry() {
+            const name = document.getElementById('name').value;
+            const hours = parseInt(document.getElementById('hours').value, 10);
+            const minutes = parseInt(document.getElementById('minutes').value, 10);
+            const seconds = parseInt(document.getElementById('seconds').value, 10);
+
+            if (!name) {
+                alert('請填寫名稱');
+                return;
+            }
+
+            const now = new Date();
+            const futureTime = new Date(now.getTime() + hours * 3600000 + minutes * 60000 + seconds * 1000);
+
+            const table = document.getElementById('timeTable');
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${name}</td>
+                <td>${hours}時 ${minutes}分 ${seconds}秒</td>
+                <td data-future="${futureTime.toISOString()}">${formatTime(futureTime)}</td>
+            `;
+
+            table.appendChild(row);
+
+            clearInputs();
+            sortTable();
+        }
+
+        function clearInputs() {
+            document.getElementById('name').value = '';
+            document.getElementById('hours').value = '0';
+            document.getElementById('minutes').value = '0';
+            document.getElementById('seconds').value = '0';
+        }
+
+        function formatTime(date) {
+            return date.toLocaleTimeString('zh-Hant', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
+
+        function updateTimes() {
+            const rows = document.querySelectorAll('#timeTable tr');
+            rows.forEach(row => {
+                const cell = row.cells[2];
+                const futureTime = new Date(cell.getAttribute('data-future'));
+                const now = new Date();
+
+                if (futureTime > now) {
+                    cell.textContent = formatTime(futureTime);
+                } else {
+                    cell.textContent = '已過期';
+                }
+            });
+
+            sortTable();
+        }
+
+        function sortTable() {
+            const table = document.getElementById('timeTable');
+            const rows = Array.from(table.rows);
+
+            rows.sort((a, b) => {
+                const timeA = new Date(a.cells[2].getAttribute('data-future'));
+                const timeB = new Date(b.cells[2].getAttribute('data-future'));
+                return timeA - timeB;
+            });
+
+            rows.forEach(row => table.appendChild(row));
+        }
+
+        // 初始化頁面
+        initSelectOptions();
+        setInterval(updateTimes, 1000);
+    </script>
+</body>
+</html>
