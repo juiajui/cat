@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA 推播通知範例</title>
+    <link rel="manifest" href="manifest.json">
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js')
+                .then(registration => {
+                    console.log('Service Worker 註冊成功:', registration);
+                })
+                .catch(error => {
+                    console.error('Service Worker 註冊失敗:', error.message);
+                    alert('Service Worker 註冊失敗，請檢查路徑或伺服器設置。');
+                });
+        } else {
+            alert('您的瀏覽器不支援 Service Worker。');
+        }
+
+        if (!('Notification' in window)) {
+            alert('您的瀏覽器不支援推播通知功能。');
+        }
+
+        async function requestNotificationPermission() {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                alert('推播通知已啟用!');
+            } else {
+                alert('推播通知被拒絕或未設定。');
+            }
+        }
+
+        function triggerNotification() {
+            if (Notification.permission === 'granted') {
+                navigator.serviceWorker.getRegistration().then(registration => {
+                    if (registration) {
+                        registration.showNotification('這是一個推播通知!', {
+                            body: '您按下了按鈕觸發了這則通知。',
+                            icon: 'icon.png',
+                            tag: 'example-notification'
+                        });
+                    }
+                });
+            } else {
+                alert('請先啟用推播通知!');
+            }
+        }
+    </script>
+</head>
+<body>
+    <h1>PWA 推播通知範例</h1>
+    <button onclick="requestNotificationPermission()">啟用推播通知</button>
+    <button onclick="triggerNotification()">觸發推播通知</button>
+</body>
+</html>
