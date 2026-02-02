@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>任務紀錄工具</title>
+    <title>任務紀錄助手</title>
     
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
@@ -17,11 +17,10 @@
     </script>
 
     <style>
-        /* 基礎重置 */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body { 
-            font-family: -apple-system, system-ui, sans-serif; 
+            font-family: -apple-system, sans-serif; 
             padding: 15px; 
             background-color: #f4f7f9; 
             margin: 0;
@@ -36,6 +35,7 @@
             padding: 20px; 
             border-radius: 16px; 
             box-shadow: 0 10px 25px rgba(0,0,0,0.05); 
+            display: block !important; /* 確保容器可見 */
         }
 
         h2 { 
@@ -64,7 +64,7 @@
             color: #34495e; 
         }
 
-        /* 最終修復：強制所有輸入框在 iOS 下表現一致 */
+        /* 統一所有輸入框在 iOS 下的表現 */
         input, select { 
             -webkit-appearance: none;
             appearance: none;
@@ -76,13 +76,8 @@
             display: block;
             background-color: #fff;
             color: #333;
-            height: 50px; /* 固定高度 */
+            height: 50px; 
             line-height: normal;
-        }
-        
-        /* 針對 iOS datetime-local 修正 */
-        input[type="datetime-local"] {
-            min-height: 50px;
         }
 
         button#addBtn { 
@@ -95,21 +90,19 @@
             font-size: 16px; 
             font-weight: bold; 
             cursor: pointer;
-            margin-top: 10px;
+            margin: 10px 0 25px 0;
+            display: block;
         }
-
-        button#addBtn:active { opacity: 0.8; }
 
         .table-container { 
             width: 100%; 
             overflow-x: auto; 
-            margin-top: 30px;
-            border-radius: 8px;
-            -webkit-overflow-scrolling: touch;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
         }
 
-        table { width: 100%; border-collapse: collapse; min-width: 450px; }
-        th { background: #34495e; color: white; padding: 12px; text-align: left; font-size: 12px; white-space: nowrap; }
+        table { width: 100%; border-collapse: collapse; min-width: 400px; }
+        th { background: #34495e; color: white; padding: 12px; text-align: left; font-size: 12px; }
         td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
         .delete-btn { color: #e74c3c; cursor: pointer; border: none; background: none; font-weight: bold; }
     </style>
@@ -131,3 +124,96 @@
             <label>目標類型</label>
             <select id="type">
                 <option value="狼">🐺 狼</option>
+                <option value="海盜">🏴‍☠️ 海盜</option>
+                <option value="食物">🍎 食物</option>
+                <option value="貓">🐱 貓</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label>等級 (Lv.)</label>
+            <input type="number" id="level" placeholder="例如: 1">
+        </div>
+    </div>
+
+    <button id="addBtn" onclick="addTask()">新增紀錄並預約通知</button>
+
+    <div class="table-container">
+        <table>
+            <thead><tr><th>類型</th><th>等級</th><th>開始</th><th>結束</th><th>操作</th></tr></thead>
+            <tbody id="taskBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // 獨立的渲染函數，避免影響到其他邏輯
+    function renderRow(task) {
+        const tableBody = document.getElementById('taskBody');
+        if (!tableBody) return;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><strong>${task.type}</strong></td>
+            <td>Lv.${task.level}</td>
+            <td>${task.start}</td>
+            <td>${task.end}</td>
+            <td><button class="delete-btn" onclick="deleteTask(${task.id}, this)">刪除</button></td>
+        `;
+        tableBody.appendChild(row);
+    }
+
+    window.onload = function() {
+        // 設定預設時間
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('startTime').value = now.toISOString().slice(0,16);
+        
+        // 載入舊資料
+        const saved = JSON.parse(localStorage.getItem('myTasks')) || [];
+        saved.forEach(t => renderRow(t));
+    };
+
+    function addTask() {
+        const startVal = document.getElementById('startTime').value;
+        const dur = parseFloat(document.getElementById('duration').value);
+
+        if (!startVal || isNaN(dur)) {
+            alert('請填寫完整時間與持續小時！');
+            return;
+        }
+
+        const startDate = new Date(startVal);
+        const endDate = new Date(startDate.getTime() + dur * 60 * 60 * 1000);
+        
+        const taskData = {
+            id: Date.now(),
+            type: document.getElementById('type').value,
+            level: document.getElementById('level').value || "1",
+            start: startDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false}),
+            end: endDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false})
+        };
+
+        // 預約通知請求
+        if (window.OneSignalDeferred) {
+            OneSignalDeferred.push(function(OneSignal) {
+                OneSignal.Notifications.requestPermission();
+            });
+        }
+
+        // 儲存並渲染
+        const saved = JSON.parse(localStorage.getItem('myTasks')) || [];
+        saved.push(taskData);
+        localStorage.setItem('myTasks', JSON.stringify(saved));
+        
+        renderRow(taskData);
+        document.getElementById('duration').value = "";
+    }
+
+    function deleteTask(id, btn) {
+        if(!confirm('確定刪除？')) return;
+        btn.closest('tr').remove();
+        let saved = JSON.parse(localStorage.getItem('myTasks')) || [];
+        localStorage.setItem('myTasks', JSON.stringify(saved.filter(t => t.id !== id)));
+    }
+</script>
+</body>
+</html>
