@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>紀錄助手</title>
+    <title>任務紀錄助手</title>
     
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
@@ -26,7 +26,7 @@
         input, select { -webkit-appearance: none; appearance: none; padding: 12px 15px; border: 1px solid #dcdfe6; border-radius: 10px; font-size: 16px; width: 100%; height: 50px; background-color: #fff; }
         button#addBtn { width: 100%; padding: 16px; background: #3498db; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; margin: 10px 0 25px 0; }
         .table-container { width: 100%; overflow-x: auto; border-top: 1px solid #eee; padding-top: 20px; }
-        table { width: 100%; border-collapse: collapse; min-width: 400px; }
+        table { width: 100%; border-collapse: collapse; min-width: 450px; }
         th { background: #34495e; color: white; padding: 10px; text-align: left; font-size: 12px; }
         td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
         .delete-btn { color: #e74c3c; cursor: pointer; border: none; background: none; font-weight: bold; }
@@ -71,7 +71,9 @@
 </div>
 
 <script>
-    // 渲染函數
+    const ONESIGNAL_APP_ID = "a7a8a1b0-bca1-4066-8a01-5bcb5ea204cd";
+    const REST_API_KEY = "你的_REST_API_KEY"; // <--- 請在此貼上你的 REST API Key
+
     function renderRow(task) {
         const tableBody = document.getElementById('taskBody');
         if (!tableBody) return;
@@ -80,7 +82,6 @@
         tableBody.appendChild(row);
     }
 
-    // 初始化
     window.onload = function() {
         try {
             const now = new Date();
@@ -92,43 +93,63 @@
         } catch (e) { console.error("Init Error:", e); }
     };
 
-    function addTask() {
-        try {
-            const startVal = document.getElementById('startTime').value;
-            const dur = parseFloat(document.getElementById('duration').value);
+    async function addTask() {
+        const startVal = document.getElementById('startTime').value;
+        const dur = parseFloat(document.getElementById('duration').value);
 
-            if (!startVal || isNaN(dur)) {
-                alert('請填寫完整時間與持續小時！');
-                return;
-            }
+        if (!startVal || isNaN(dur)) {
+            alert('請填寫完整內容！');
+            return;
+        }
 
-            const startDate = new Date(startVal);
-            const endDate = new Date(startDate.getTime() + dur * 60 * 60 * 1000);
-            
-            const taskData = {
-                id: Date.now(),
-                type: document.getElementById('type').value,
-                level: document.getElementById('level').value || "1",
-                start: startDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false}),
-                end: endDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false})
-            };
+        const startDate = new Date(startVal);
+        const endDate = new Date(startDate.getTime() + dur * 60 * 60 * 1000);
+        
+        const taskData = {
+            id: Date.now(),
+            type: document.getElementById('type').value,
+            level: document.getElementById('level').value || "1",
+            start: startDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false}),
+            end: endDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false})
+        };
 
-            // 通知請求 (包裹在 try 內避免崩潰)
-            try {
-                if (window.OneSignalDeferred) {
-                    OneSignalDeferred.push(function(OneSignal) {
-                        OneSignal.Notifications.requestPermission();
-                    });
+        // --- OneSignal 預約通知 (提前 30 分鐘) ---
+        const notifyTime = new Date(endDate.getTime() - (30 * 60 * 1000));
+        
+        if (notifyTime > new Date()) {
+            OneSignalDeferred.push(async function(OneSignal) {
+                // 請求通知權限
+                await OneSignal.Notifications.requestPermission();
+                const userId = OneSignal.User.PushSubscription.id;
+
+                if (userId && REST_API_KEY !== "你的_REST_API_KEY") {
+                    // 發送 API 預約請求
+                    try {
+                        await fetch("https://onesignal.com/api/v1/notifications", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json; charset=utf-8",
+                                "Authorization": `Basic ${REST_API_KEY}`
+                            },
+                            body: JSON.stringify({
+                                app_id: ONESIGNAL_APP_ID,
+                                include_subscription_ids: [userId],
+                                contents: {"en": `任務 [${taskData.type}] (Lv.${taskData.level}) 將在 30 分鐘後結束！`},
+                                send_after: notifyTime.toISOString()
+                            })
+                        });
+                        console.log("通知預約成功:", notifyTime.toLocaleString());
+                    } catch (err) { console.error("通知預約失敗", err); }
                 }
-            } catch (err) { console.log("OneSignal push failed"); }
+            });
+        }
 
-            const saved = JSON.parse(localStorage.getItem('myTasks')) || [];
-            saved.push(taskData);
-            localStorage.setItem('myTasks', JSON.stringify(saved));
-            
-            renderRow(taskData);
-            document.getElementById('duration').value = "";
-        } catch (e) { alert("發生錯誤，請重新整理"); }
+        const saved = JSON.parse(localStorage.getItem('myTasks')) || [];
+        saved.push(taskData);
+        localStorage.setItem('myTasks', JSON.stringify(saved));
+        
+        renderRow(taskData);
+        document.getElementById('duration').value = "";
     }
 
     function deleteTask(id, btn) {
