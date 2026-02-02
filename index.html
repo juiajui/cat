@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>任務紀錄工具 (iOS 精確對齊版)</title>
+    <title>任務紀錄工具</title>
     
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
@@ -17,12 +17,13 @@
     </script>
 
     <style>
+        /* 基礎重置 */
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body { 
             font-family: -apple-system, system-ui, sans-serif; 
-            padding: 10px; 
-            background-color: #f4f6f8; 
+            padding: 15px; 
+            background-color: #f4f7f9; 
             margin: 0;
             overflow-x: hidden;
         }
@@ -34,7 +35,7 @@
             background: white; 
             padding: 20px; 
             border-radius: 16px; 
-            box-shadow: 0 8px 24px rgba(0,0,0,0.05); 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05); 
         }
 
         h2 { 
@@ -42,14 +43,14 @@
             border-bottom: 2px solid #3498db; 
             padding-bottom: 10px; 
             margin: 0 0 20px 0; 
-            font-size: 1.4rem;
+            font-size: 1.3rem;
             text-align: center;
         }
 
         .form-grid { 
             display: flex;
             flex-direction: column;
-            gap: 16px; 
+            gap: 15px; 
             margin-bottom: 20px; 
         }
 
@@ -63,10 +64,10 @@
             color: #34495e; 
         }
 
-        /* 關鍵修復：統一所有輸入框的高度與外觀 */
+        /* 最終修復：強制所有輸入框在 iOS 下表現一致 */
         input, select { 
-            appearance: none;
             -webkit-appearance: none;
+            appearance: none;
             padding: 12px 15px; 
             border: 1px solid #dcdfe6; 
             border-radius: 10px; 
@@ -74,15 +75,14 @@
             width: 100%; 
             display: block;
             background-color: #fff;
-            color: #303133;
-            height: 48px; /* 強制統一高度 */
-            line-height: normal; /* 修復 iOS 文字垂直偏離 */
+            color: #333;
+            height: 50px; /* 固定高度 */
+            line-height: normal;
         }
         
-        /* 針對 datetime-local 的特殊修復 */
+        /* 針對 iOS datetime-local 修正 */
         input[type="datetime-local"] {
-            min-height: 48px;
-            background-color: #f9fafb; /* 稍微深一點色區分 */
+            min-height: 50px;
         }
 
         button#addBtn { 
@@ -92,7 +92,42 @@
             color: white; 
             border: none; 
             border-radius: 10px; 
-            font-size: 17px; 
+            font-size: 16px; 
             font-weight: bold; 
             cursor: pointer;
-            transition:
+            margin-top: 10px;
+        }
+
+        button#addBtn:active { opacity: 0.8; }
+
+        .table-container { 
+            width: 100%; 
+            overflow-x: auto; 
+            margin-top: 30px;
+            border-radius: 8px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table { width: 100%; border-collapse: collapse; min-width: 450px; }
+        th { background: #34495e; color: white; padding: 12px; text-align: left; font-size: 12px; white-space: nowrap; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+        .delete-btn { color: #e74c3c; cursor: pointer; border: none; background: none; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>任務紀錄助手</h2>
+    <div class="form-grid">
+        <div class="input-group">
+            <label>開始時間</label>
+            <input type="datetime-local" id="startTime">
+        </div>
+        <div class="input-group">
+            <label>持續小時</label>
+            <input type="number" id="duration" placeholder="例如: 5">
+        </div>
+        <div class="input-group">
+            <label>目標類型</label>
+            <select id="type">
+                <option value="狼">🐺 狼</option>
