@@ -18,12 +18,23 @@
 
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: -apple-system, sans-serif; padding: 15px; background-color: #f4f7f9; margin: 0; overflow-x: hidden; }
-        .container { width: 100%; max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 15px; background-color: #f4f7f9; margin: 0; }
+        
+        .container { 
+            width: 100%; 
+            max-width: 500px; 
+            margin: 0 auto; 
+            background: white; 
+            padding: 20px; 
+            border-radius: 16px; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05); 
+        }
+
         h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin: 0 0 20px 0; font-size: 1.3rem; text-align: center; }
         .form-grid { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
         label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #34495e; }
-        /* 強制 iOS 輸入框高度與字體一致，避免 UI 跑掉 */
+
+        /* 修復時間輸入框溢出問題 */
         input, select { 
             -webkit-appearance: none; 
             appearance: none; 
@@ -31,18 +42,39 @@
             border: 1px solid #dcdfe6; 
             border-radius: 10px; 
             font-size: 16px; 
-            width: 100%; 
+            width: 100%; /* 關鍵 */
+            max-width: 100%; /* 防止溢出 */
             height: 50px; 
             background-color: #fff; 
             line-height: normal;
+            display: block;
         }
-        button#addBtn { width: 100%; padding: 16px; background: #3498db; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; margin: 10px 0 25px 0; cursor: pointer; }
-        button#addBtn:active { opacity: 0.8; }
+
+        /* 針對 iOS datetime-local 的特殊修復 */
+        input[type="datetime-local"] {
+            min-height: 50px;
+        }
+
+        button#addBtn { 
+            width: 100%; 
+            padding: 16px; 
+            background: #3498db; 
+            color: white; 
+            border: none; 
+            border-radius: 10px; 
+            font-size: 16px; 
+            font-weight: bold; 
+            margin: 10px 0 25px 0; 
+            cursor: pointer; 
+            transition: background 0.2s;
+        }
+        button#addBtn:active { background: #2980b9; }
+
         .table-container { width: 100%; overflow-x: auto; border-top: 1px solid #eee; padding-top: 20px; }
-        table { width: 100%; border-collapse: collapse; min-width: 450px; }
+        table { width: 100%; border-collapse: collapse; min-width: 400px; }
         th { background: #34495e; color: white; padding: 10px; text-align: left; font-size: 12px; }
         td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
-        .delete-btn { color: #e74c3c; cursor: pointer; border: none; background: none; font-weight: bold; }
+        .delete-btn { color: #e74c3c; cursor: pointer; border: none; background: none; font-weight: bold; padding: 5px; }
     </style>
 </head>
 <body>
@@ -56,7 +88,7 @@
         </div>
         <div class="input-group">
             <label>持續小時</label>
-            <input type="number" id="duration" placeholder="例如: 5">
+            <input type="number" id="duration" placeholder="例如: 5" inputmode="decimal">
         </div>
         <div class="input-group">
             <label>目標類型</label>
@@ -69,7 +101,7 @@
         </div>
         <div class="input-group">
             <label>等級 (Lv.)</label>
-            <input type="number" id="level" placeholder="例如: 1">
+            <input type="number" id="level" placeholder="例如: 1" inputmode="numeric">
         </div>
     </div>
 
@@ -85,7 +117,6 @@
 
 <script>
     const ONESIGNAL_APP_ID = "a7a8a1b0-bca1-4066-8a01-5bcb5ea204cd";
-    // 注意：確保這串 Key 是 os_v2_app 開頭的 REST API Key
     const REST_API_KEY = "os_v2_app_u6ukdmf4ufagncqblpfv5iqezxjdummr63tukjfq22zlb5qoicdv7mylwihfz5xrtmzfxzkw27smwy6gp3tqh73k3yxn7pycr3u7wai";
 
     function renderRow(task) {
@@ -93,18 +124,17 @@
         if (!tableBody) return;
         const row = document.createElement('tr');
         row.innerHTML = `<td><strong>${task.type}</strong></td><td>Lv.${task.level}</td><td>${task.start}</td><td>${task.end}</td><td><button class="delete-btn" onclick="deleteTask(${task.id}, this)">刪除</button></td>`;
-        tableBody.appendChild(row);
+        tableBody.prepend(row); // 新的放前面
     }
 
     window.onload = function() {
-        try {
-            const now = new Date();
-            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            document.getElementById('startTime').value = now.toISOString().slice(0,16);
-            
-            const saved = JSON.parse(localStorage.getItem('myTasks')) || [];
-            saved.forEach(t => renderRow(t));
-        } catch (e) { console.error("初始化錯誤:", e); }
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
+        document.getElementById('startTime').value = localISOTime;
+        
+        const saved = JSON.parse(localStorage.getItem('myTasks')) || [];
+        saved.forEach(t => renderRow(t));
     };
 
     async function addTask() {
@@ -127,44 +157,46 @@
             end: endDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false})
         };
 
-        // --- OneSignal 預約通知邏輯 ---
+        // 通知預約時間：結束前 30 分鐘
         const notifyTime = new Date(endDate.getTime() - (30 * 60 * 1000));
-        
+
         OneSignalDeferred.push(async function(OneSignal) {
             try {
-                // 1. 請求通知權限
-                await OneSignal.Notifications.requestPermission();
-                
-                // 2. 取得此裝置的訂閱 ID
-                const userId = OneSignal.User.PushSubscription.id;
+                // iOS 必須在點擊事件中觸發權限請求
+                let permission = await OneSignal.Notifications.permission;
+                if (!permission) {
+                    await OneSignal.Notifications.requestPermission();
+                }
 
-                // 3. 只有在有 ID 且時間在未來時才發送預約請求
+                const userId = OneSignal.User.PushSubscription.id;
+                
                 if (userId && notifyTime > new Date()) {
                     const response = await fetch("https://onesignal.com/api/v1/notifications", {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json; charset=utf-8",
-                            "Authorization": `Key ${REST_API_KEY}` // 標準格式為 Key + 空格 + 金鑰
+                            "Authorization": `Key ${REST_API_KEY}`
                         },
                         body: JSON.stringify({
                             app_id: ONESIGNAL_APP_ID,
                             include_subscription_ids: [userId],
-                            contents: {"en": `任務 [${taskData.type}] (Lv.${taskData.level}) 將在 30 分鐘後結束！`},
+                            contents: {"en": `任務 [${taskData.type}] (Lv.${taskData.level}) 將在 30 分鐘後結束！`, "zh-Hant": `任務 [${taskData.type}] (Lv.${taskData.level}) 將在 30 分鐘後結束！`},
                             send_after: notifyTime.toISOString()
                         })
                     });
                     const result = await response.json();
-                    console.log("預約狀態:", result);
+                    console.log("預約成功:", result);
+                } else if (!userId) {
+                    alert("請先允許通知權限，否則無法收到提醒！");
                 }
             } catch (err) {
-                console.error("通知功能錯誤:", err);
+                console.error("通知設定失敗:", err);
             }
         });
 
         const saved = JSON.parse(localStorage.getItem('myTasks')) || [];
         saved.push(taskData);
         localStorage.setItem('myTasks', JSON.stringify(saved));
-        
         renderRow(taskData);
         document.getElementById('duration').value = "";
     }
