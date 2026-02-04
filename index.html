@@ -35,10 +35,46 @@
         select, input { -webkit-appearance: none; padding: 12px; border: 1px solid #dcdfe6; border-radius: 10px; font-size: 16px; width: 100%; background: #fff; height: 45px; }
         label { font-size: 14px; color: #666; font-weight: bold; margin-bottom: -8px; margin-left: 5px; }
 
+        .radio-group { display: flex; gap: 10px; margin-top: 5px; }
+        .radio-option { flex: 1; }
+        .radio-option input { display: none; }
+        .radio-option span {
+            display: block;
+            text-align: center;
+            padding: 10px;
+            border: 1px solid #dcdfe6;
+            border-radius: 8px;
+            background: #f8f9fa;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+        .radio-option input:checked + span {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+            box-shadow: 0 4px 6px rgba(52, 152, 219, 0.2);
+        }
+        .radio-option input[value="激戰"]:checked + span {
+            background: #e74c3c;
+            border-color: #e74c3c;
+            box-shadow: 0 4px 6px rgba(231, 76, 60, 0.2);
+        }
+        .radio-option input[value="王"]:checked + span {
+            background: #f39c12;
+            border-color: #f39c12;
+            box-shadow: 0 4px 6px rgba(243, 156, 18, 0.2);
+        }
+
         #debug-log { margin-top: 20px; padding: 10px; background: #1a1a1a; color: #00ff00; font-family: monospace; font-size: 11px; border-radius: 8px; height: 120px; overflow-y: auto; }
         .table-container { width: 100%; overflow-x: auto; margin-top: 20px; }
         table { width: 100%; border-collapse: collapse; min-width: 300px; font-size: 13px; }
         td, th { padding: 10px; border-bottom: 1px solid #eee; text-align: left; }
+        
+        .tag { font-size: 11px; padding: 2px 4px; border-radius: 4px; color: white; margin-right: 2px; }
+        .tag-fierce { background: #e74c3c; } 
+        .tag-boss { background: #f39c12; }   
     </style>
 </head>
 <body>
@@ -61,6 +97,30 @@
             <option value="unknown">未知</option>
         </select>
 
+        <label>戰況</label>
+        <div class="radio-group">
+            <label class="radio-option">
+                <input type="radio" name="battleMode" value="一般" checked>
+                <span>一般</span>
+            </label>
+            <label class="radio-option">
+                <input type="radio" name="battleMode" value="激戰">
+                <span>🔥 激戰</span>
+            </label>
+        </div>
+
+        <label>階級 (點擊切換等級範圍)</label>
+        <div class="radio-group">
+            <label class="radio-option">
+                <input type="radio" name="rankType" value="小怪" checked onclick="updateLevelOptions('小怪')">
+                <span>小怪 (1-30)</span>
+            </label>
+            <label class="radio-option">
+                <input type="radio" name="rankType" value="王" onclick="updateLevelOptions('王')">
+                <span>👑 王 (20-40)</span>
+            </label>
+        </div>
+
         <label>任務類型</label>
         <select id="type">
             <option value="🐺 狼">🐺 狼</option>
@@ -69,7 +129,7 @@
             <option value="🐱 貓">🐱 貓</option>
         </select>
 
-        <label>等級 (Lv.1 - Lv.40)</label>
+        <label>等級</label>
         <select id="level"></select>
     </div>
     
@@ -77,7 +137,7 @@
 
     <div class="table-container">
         <table>
-            <thead><tr><th>類型</th><th>Lv.</th><th>結束</th><th>操作</th></tr></thead>
+            <thead><tr><th>資訊</th><th>Lv.</th><th>結束</th><th>操作</th></tr></thead>
             <tbody id="taskBody"></tbody>
         </table>
     </div>
@@ -88,10 +148,31 @@
 <script>
     let savedTasks = JSON.parse(localStorage.getItem('myTasks')) || [];
 
+    // 定義等級範圍
+    const LEVEL_RANGES = {
+        '小怪': { min: 1, max: 30 },
+        '王': { min: 20, max: 40 }
+    };
+
     function log(msg) {
         const div = document.getElementById('debug-log');
         div.innerHTML += "> " + msg + "<br>";
         div.scrollTop = div.scrollHeight;
+    }
+
+    // 更新下拉選單的功能
+    function updateLevelOptions(rankType) {
+        const select = document.getElementById('level');
+        select.innerHTML = ""; // 先清空
+        
+        const range = LEVEL_RANGES[rankType];
+        
+        for (let i = range.min; i <= range.max; i++) {
+            let option = document.createElement("option");
+            option.value = i;
+            option.text = i;
+            select.appendChild(option);
+        }
     }
 
     async function activatePush() {
@@ -107,12 +188,19 @@
     async function addTask() {
         const startVal = document.getElementById('startTime').value;
         const durVal = document.getElementById('duration').value;
+        const typeVal = document.getElementById('type').value;
+        const levelVal = document.getElementById('level').value;
+        
+        const modeVal = document.querySelector('input[name="battleMode"]:checked').value;
+        const rankVal = document.querySelector('input[name="rankType"]:checked').value;
 
         // --- 未知時間處理 ---
         if (durVal === 'unknown') {
             const newTask = {
-                type: document.getElementById('type').value,
-                lv: document.getElementById('level').value,
+                mode: modeVal,
+                rank: rankVal,
+                type: typeVal,
+                lv: levelVal,
                 endStr: "未知"
             };
             savedTasks.unshift(newTask);
@@ -125,11 +213,8 @@
         const dur = parseFloat(durVal);
         if (!startVal || isNaN(dur)) return alert('請確認時間');
 
-        // 計算結束時間
         const endDate = new Date(new Date(startVal).getTime() + dur * 3600000);
-        const notifyTime = new Date(endDate.getTime() - 1800000); // 30 分鐘前
-
-        // 格式化時間字串
+        const notifyTime = new Date(endDate.getTime() - 1800000); 
         const timeStr = endDate.toLocaleString('zh-TW', {hour:'2-digit', minute:'2-digit', hour12:false});
 
         if (notifyTime <= new Date()) return alert("時間已過，無法預約通知！");
@@ -137,12 +222,18 @@
         log("📡 呼叫後端預約通知...");
 
         try {
+            // 組合通知前綴
+            let prefix = "";
+            if (modeVal === "激戰") prefix += "[激戰]";
+            if (rankVal === "王") prefix += "[王]";
+
             const response = await fetch("/api/schedule", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     notifyAt: notifyTime.toISOString(),
-                    message: `[${document.getElementById('type').value}] 於 ${timeStr} 即將消失！`
+                    // 訊息格式：[激戰][王] [類型]LV等級,將於HH:mm消失
+                    message: `${prefix} [${typeVal}]LV${levelVal},將於${timeStr}消失`
                 })
             });
 
@@ -152,8 +243,10 @@
                 alert("✅ 預約成功！");
                 
                 const newTask = {
-                    type: document.getElementById('type').value,
-                    lv: document.getElementById('level').value,
+                    mode: modeVal,
+                    rank: rankVal,
+                    type: typeVal,
+                    lv: levelVal,
                     endStr: endDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false})
                 };
                 
@@ -187,10 +280,14 @@
         tbody.innerHTML = ""; 
         
         savedTasks.forEach((task, index) => {
+            let displayType = task.type;
+            if (task.mode === "激戰") displayType = `<span class="tag tag-fierce">激</span>` + displayType;
+            if (task.rank === "王") displayType += ` <span class="tag tag-boss">王</span>`;
+
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td>${task.type}</td>
-                <td>Lv.${task.lv}</td>
+                <td>${displayType}</td>
+                <td>${task.lv}</td>
                 <td>${task.endStr}</td>
                 <td><button onclick="deleteTask(${index})" style="color:red; border:none; background:none; font-weight:bold;">刪除</button></td>
             `;
@@ -198,23 +295,14 @@
         });
     }
 
-    // 畫面載入時執行
     window.onload = function() {
-        // 1. 設定現在時間
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         document.getElementById('startTime').value = now.toISOString().slice(0,16);
         
-        // 2. 自動產生 1~40 的等級選項
-        const levelSelect = document.getElementById('level');
-        for (let i = 1; i <= 40; i++) {
-            let option = document.createElement("option");
-            option.value = i;
-            option.text = i;
-            levelSelect.appendChild(option);
-        }
+        // 預設載入小怪等級 (1-30)
+        updateLevelOptions('小怪');
 
-        // 3. 讀取舊資料
         renderTable(); 
     };
 </script>
