@@ -1,12 +1,11 @@
 {
-  "id": "/cat/",
   "name": "任務紀錄助手",
   "short_name": "任務助手",
-  "start_url": "/cat/index.html",
-  "scope": "/cat/",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3498db",
+  "scope": "/",
   "icons": [
     {
       "src": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png",
