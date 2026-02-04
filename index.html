@@ -69,8 +69,8 @@
             <option value="🐱 貓">🐱 貓</option>
         </select>
 
-        <label>等級</label>
-        <input type="number" id="level" placeholder="例如: 1">
+        <label>等級 (Lv.1 - Lv.40)</label>
+        <select id="level"></select>
     </div>
     
     <button id="addBtn" onclick="addTask()">第二步：新增並預約</button>
@@ -107,12 +107,14 @@
     async function addTask() {
         const startVal = document.getElementById('startTime').value;
         const durVal = document.getElementById('duration').value;
+        const typeVal = document.getElementById('type').value;
+        const levelVal = document.getElementById('level').value;
 
         // --- 未知時間處理 ---
         if (durVal === 'unknown') {
             const newTask = {
-                type: document.getElementById('type').value,
-                lv: document.getElementById('level').value || "?",
+                type: typeVal,
+                lv: levelVal,
                 endStr: "未知"
             };
             savedTasks.unshift(newTask);
@@ -129,7 +131,7 @@
         const endDate = new Date(new Date(startVal).getTime() + dur * 3600000);
         const notifyTime = new Date(endDate.getTime() - 1800000); // 30 分鐘前
 
-        // 格式化時間字串，例如 "14:30"
+        // 格式化時間字串 HH:mm
         const timeStr = endDate.toLocaleString('zh-TW', {hour:'2-digit', minute:'2-digit', hour12:false});
 
         if (notifyTime <= new Date()) return alert("時間已過，無法預約通知！");
@@ -142,8 +144,8 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     notifyAt: notifyTime.toISOString(),
-                    // 👇 修改處：使用剛剛算好的 timeStr
-                    message: `[${document.getElementById('type').value}] 於 ${timeStr} 即將消失！`
+                    // 👇 修改處：[Type]LV等級,將於時間消失
+                    message: `[${typeVal}]LV${levelVal},將於${timeStr}消失`
                 })
             });
 
@@ -153,8 +155,8 @@
                 alert("✅ 預約成功！");
                 
                 const newTask = {
-                    type: document.getElementById('type').value,
-                    lv: document.getElementById('level').value || "1",
+                    type: typeVal,
+                    lv: levelVal,
                     endStr: endDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false})
                 };
                 
@@ -200,9 +202,21 @@
     }
 
     window.onload = function() {
+        // 1. 設定現在時間
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         document.getElementById('startTime').value = now.toISOString().slice(0,16);
+        
+        // 2. 自動產生 1~40 的等級選項
+        const levelSelect = document.getElementById('level');
+        for (let i = 1; i <= 40; i++) {
+            let option = document.createElement("option");
+            option.value = i;
+            option.text = i;
+            levelSelect.appendChild(option);
+        }
+
+        // 3. 讀取舊資料
         renderTable(); 
     };
 </script>
