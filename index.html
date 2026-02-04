@@ -18,6 +18,7 @@
         OneSignal.init({
           appId: "a7a8a1b0-bca1-4066-8a01-5bcb5ea204cd",
           serviceWorkerPath: 'OneSignalSDKWorker.js',
+          // ⚠️ 注意：下面這行我已經拿掉了 scope: '/cat/'，因為你在 Vercel 不需要它
           allowLocalhostAsSecureOrigin: true
         });
       });
@@ -135,4 +136,5 @@
 </script>
 </body>
 </html>
+
 
