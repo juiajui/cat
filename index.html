@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>任務紀錄助手</title>
+    <title>任務紀錄助手 - 強力修復版</title>
     
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
@@ -11,7 +11,9 @@
       OneSignalDeferred.push(function(OneSignal) {
         OneSignal.init({
           appId: "a7a8a1b0-bca1-4066-8a01-5bcb5ea204cd",
-          // 移除所有複雜設定，讓 SDK 自己找根目錄下的 Worker 檔案
+          // 強制指定 Service Worker 位置，避免 iOS 找不到
+          serviceWorkerPath: 'OneSignalSDKWorker.js',
+          serviceWorkerParam: { scope: '/cat/' }
         });
       });
     </script>
@@ -20,14 +22,14 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: -apple-system, sans-serif; padding: 15px; background-color: #f4f7f9; margin: 0; }
         .container { width: 100%; max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin: 0 0 20px 0; font-size: 1.3rem; text-align: center; }
+        h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin: 0 0 20px 0; font-size: 1.2rem; text-align: center; }
         .form-grid { display: flex; flex-direction: column; gap: 12px; }
         label { display: block; margin-bottom: 4px; font-weight: 600; font-size: 14px; color: #34495e; }
         input, select { -webkit-appearance: none; appearance: none; padding: 12px 15px; border: 1px solid #dcdfe6; border-radius: 10px; font-size: 16px; width: 100%; height: 50px; background-color: #fff; }
         .btn-ready { width: 100%; padding: 14px; background: #2ecc71; color: white; border: none; border-radius: 10px; font-weight: bold; margin-bottom: 15px; cursor: pointer; }
         #addBtn { width: 100%; padding: 16px; background: #3498db; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; margin-top: 15px; cursor: pointer; }
-        .table-container { width: 100%; overflow-x: auto; margin-top: 20px; }
-        table { width: 100%; border-collapse: collapse; min-width: 400px; font-size: 13px; }
+        .table-container { width: 100%; overflow-x: auto; margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px; }
+        table { width: 100%; border-collapse: collapse; min-width: 350px; font-size: 13px; }
         td, th { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
     </style>
 </head>
@@ -35,12 +37,11 @@
 
 <div class="container">
     <h2>任務紀錄助手</h2>
-    
-    <button class="btn-ready" onclick="activatePush()">第一步：點我開啟通知</button>
+    <button class="btn-ready" onclick="activatePush()">第一步：強制啟用通知</button>
 
     <div class="form-grid">
         <div class="input-group"><label>開始時間</label><input type="datetime-local" id="startTime"></div>
-        <div class="input-group"><label>持續小時</label><input type="number" id="duration" placeholder="小時"></div>
+        <div class="input-group"><label>持續小時</label><input type="number" id="duration" placeholder="例如: 2"></div>
         <div class="input-group">
             <label>目標類型</label>
             <select id="type">
@@ -64,32 +65,47 @@
 </div>
 
 <script>
+    const ONESIGNAL_APP_ID = "a7a8a1b0-bca1-4066-8a01-5bcb5ea204cd";
     const REST_API_KEY = "os_v2_app_u6ukdmf4ufagncqblpfv5iqezwlt6zqh6q3uyk5b67t43bpdh325ko2kyk7rxsq7so4pcmjivftiyr2bppdv4a73ol7g7qdrxqfstri"; 
 
+    // 強制註冊 Service Worker 並請求權限
     async function activatePush() {
-        // 加入原生 alert 測試按鈕是否有點到
-        alert("正在請求通知權限..."); 
+        alert("開始強制連線伺服器...");
+
+        // 嘗試手動註冊 Service Worker
+        if ('serviceWorker' in navigator) {
+            try {
+                await navigator.serviceWorker.register('/cat/OneSignalSDKWorker.js', { scope: '/cat/' });
+                console.log("Service Worker 註冊成功");
+            } catch (e) {
+                console.log("Service Worker 註冊失敗: ", e);
+            }
+        }
 
         OneSignalDeferred.push(async function(OneSignal) {
             try {
                 await OneSignal.Notifications.requestPermission();
                 
-                // 強制延遲 3 秒讓 iOS 處理訂閱
-                setTimeout(() => {
+                // 增加倒數，給 iOS 時間產生成員 ID
+                let count = 3;
+                let timer = setInterval(() => {
                     const userId = OneSignal.User.PushSubscription.id;
                     if (userId) {
-                        alert("✅ 成功！ID: " + userId);
-                    } else {
-                        alert("❌ 失敗：請確保已『加入主畫面』並在 iOS 設定中允許通知。");
+                        clearInterval(timer);
+                        alert("✅ 成功接通！\nID: " + userId);
+                    } else if (count <= 0) {
+                        clearInterval(timer);
+                        alert("❌ 仍然拿不到 ID。\n請試著：\n1. 關掉 App 重新打開\n2. 確保在『一般模式』而非無痕模式");
                     }
-                }, 3000);
+                    count--;
+                }, 1500);
             } catch (err) {
                 alert("錯誤：" + err);
             }
         });
     }
 
-    // 表格渲染與其餘邏輯 (同前)
+    // 渲染清單
     function renderRow(task) {
         const tableBody = document.getElementById('taskBody');
         const row = document.createElement('tr');
@@ -105,16 +121,17 @@
         saved.forEach(t => renderRow(t));
     };
 
+    // 新增任務並預約通知
     async function addTask() {
         const startVal = document.getElementById('startTime').value;
         const dur = parseFloat(document.getElementById('duration').value);
-        if (!startVal || isNaN(dur)) return alert('請填寫完整內容');
+        if (!startVal || isNaN(dur)) return alert('填寫不完整');
 
         const startDate = new Date(startVal);
         const endDate = new Date(startDate.getTime() + dur * 60 * 60 * 1000);
         const notifyTime = new Date(endDate.getTime() - (30 * 60 * 1000));
         
-        if (notifyTime <= new Date()) return alert("錯誤：提醒時間已過！");
+        if (notifyTime <= new Date()) return alert("通知時間已過，請調大持續小時！");
 
         const taskData = {
             id: Date.now(),
@@ -132,16 +149,16 @@
                     method: "POST",
                     headers: { "Content-Type": "application/json", "Authorization": `Key ${REST_API_KEY}` },
                     body: JSON.stringify({
-                        app_id: "a7a8a1b0-bca1-4066-8a01-5bcb5ea204cd",
+                        app_id: ONESIGNAL_APP_ID,
                         include_subscription_ids: [userId],
-                        contents: {"en": `任務 [${taskData.type}] 快結束了！`},
+                        contents: {"en": `任務 [${taskData.type}] (Lv.${taskData.level}) 將在 30 分鐘後結束！`},
                         send_after: notifyTime.toISOString()
                     })
                 });
                 const res = await response.json();
-                if (res.id) alert("✅ 預約成功！");
-                else alert("❌ 預約失敗：" + JSON.stringify(res));
-            } catch (err) { alert("❌ 網路錯誤：" + err); }
+                if (res.id) alert("✅ 預約成功！30分鐘前會提醒。");
+                else alert("❌ 失敗：" + JSON.stringify(res));
+            } catch (err) { alert("❌ 請求失敗：" + err); }
         });
 
         const saved = JSON.parse(localStorage.getItem('myTasks')) || [];
