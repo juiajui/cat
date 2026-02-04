@@ -107,14 +107,12 @@
     async function addTask() {
         const startVal = document.getElementById('startTime').value;
         const durVal = document.getElementById('duration').value;
-        const typeVal = document.getElementById('type').value;
-        const levelVal = document.getElementById('level').value;
 
         // --- 未知時間處理 ---
         if (durVal === 'unknown') {
             const newTask = {
-                type: typeVal,
-                lv: levelVal,
+                type: document.getElementById('type').value,
+                lv: document.getElementById('level').value,
                 endStr: "未知"
             };
             savedTasks.unshift(newTask);
@@ -131,7 +129,7 @@
         const endDate = new Date(new Date(startVal).getTime() + dur * 3600000);
         const notifyTime = new Date(endDate.getTime() - 1800000); // 30 分鐘前
 
-        // 格式化時間字串 HH:mm
+        // 格式化時間字串
         const timeStr = endDate.toLocaleString('zh-TW', {hour:'2-digit', minute:'2-digit', hour12:false});
 
         if (notifyTime <= new Date()) return alert("時間已過，無法預約通知！");
@@ -144,8 +142,7 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     notifyAt: notifyTime.toISOString(),
-                    // 👇 修改處：[Type]LV等級,將於時間消失
-                    message: `[${typeVal}]LV${levelVal},將於${timeStr}消失`
+                    message: `[${document.getElementById('type').value}] 於 ${timeStr} 即將消失！`
                 })
             });
 
@@ -155,8 +152,8 @@
                 alert("✅ 預約成功！");
                 
                 const newTask = {
-                    type: typeVal,
-                    lv: levelVal,
+                    type: document.getElementById('type').value,
+                    lv: document.getElementById('level').value,
                     endStr: endDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false})
                 };
                 
@@ -201,6 +198,7 @@
         });
     }
 
+    // 畫面載入時執行
     window.onload = function() {
         // 1. 設定現在時間
         const now = new Date();
