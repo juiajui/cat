@@ -74,7 +74,7 @@
 <body>
 
 <div class="container">
-    <h2>激戰之地助手 v1.1</h2>
+    <h2>激戰之地助手 v1.2</h2>
     
     <div class="group-input-area">
         <p>🔑 群組代碼 (區分通知用)</p>
@@ -214,7 +214,6 @@
         }
     }
 
-    // --- 輔助函式 ---
     const LEVEL_RANGES = { '小怪': { min: 1, max: 30 }, '王': { min: 20, max: 40 } };
     function updateLevelOptions(rankType) {
         const select = document.getElementById('level_v1');
@@ -250,7 +249,7 @@
 
     // --- 核心發送與儲存 ---
     
-    // 【修改重點 1】: 1F 任務的新增邏輯
+    // 【修改重點 1】: 1F 任務的訊息處理
     async function addTaskV1() {
         const startVal = document.getElementById('startTime_v1').value;
         const durVal = document.getElementById('duration_v1').value;
@@ -267,32 +266,39 @@
         const startDate = new Date(startVal);
         const durationMs = parseFloat(durVal) * 3600000;
         
-        // 1. 計算畫面顯示的結束時間 (根據使用者選的持續時間)
+        // 1. visualEndDate: 表格上顯示的時間
         const visualEndDate = new Date(startDate.getTime() + durationMs);
 
-        // 2. 計算通知觸發時間
-        let notifyTime;
-        if (modeVal === "激戰" && rankVal === "王") {
-            // 【特殊規則】激戰+王：通知時間 = 開始時間 + 3.5 小時
-            notifyTime = new Date(startDate.getTime() + (3.5 * 3600000));
-            log("⚠️ 激戰王模式: 設定通知為 3.5 小時後");
-        } else {
-            // 一般規則：結束時間 - 30分鐘
-            notifyTime = new Date(visualEndDate.getTime() - 1800000);
-        }
-
-        // 3. 處理通知文字前綴 (移除空括號問題)
+        // 2. 組合文字前綴
         let prefix = "";
         if (modeVal === "激戰") prefix += "[激戰]";
         if (rankVal === "王") prefix += "[王]";
         
-        // 呼叫發送 (傳入計算好的 notifyTime)
-        await scheduleNotification(notifyTime, `${prefix} [${typeVal}]LV${levelVal}`, "消失");
+        let notifyTime;
+        let finalMessage = "";
+
+        // 3. 判斷邏輯
+        if (modeVal === "激戰" && rankVal === "王") {
+            // === 激戰王模式 ===
+            // 通知時間 = 開始時間 + 3.5 小時
+            notifyTime = new Date(startDate.getTime() + (3.5 * 3600000));
+            // 訊息 = 指定的警語 (不顯示時間)
+            finalMessage = `${prefix} [${typeVal}]LV${levelVal} 即將4小時隨時會消失`;
+        } else {
+            // === 一般模式 ===
+            // 通知時間 = 結束時間 - 30 分鐘
+            notifyTime = new Date(visualEndDate.getTime() - 1800000);
+            // 訊息 = 顯示幾點幾分消失
+            const timeStr = visualEndDate.toLocaleString('zh-TW', {hour:'2-digit', minute:'2-digit', hour12:false});
+            finalMessage = `${prefix} [${typeVal}]LV${levelVal},將於${timeStr}消失`;
+        }
         
-        // 存檔 (存的是 visualEndDate，讓表格顯示正常持續時間)
+        // 傳送完整的 finalMessage
+        await scheduleNotification(notifyTime, finalMessage);
+        
         saveTask({
             source: 'v1', mode: modeVal, rank: rankVal, type: typeVal, lv: levelVal,
-            endTime: visualEndDate.getTime(), // 自動刪除用
+            endTime: visualEndDate.getTime(),
             endStr: visualEndDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false})
         });
     }
@@ -309,10 +315,11 @@
         const addMs = (h * 3600 + m * 60 + s) * 1000;
         const endDate = new Date(new Date(startVal).getTime() + addMs);
         
-        // 上層規則沒變：結束前 30 分鐘通知
         const notifyTime = new Date(endDate.getTime() - 1800000);
+        const timeStr = endDate.toLocaleString('zh-TW', {hour:'2-digit', minute:'2-digit', hour12:false});
 
-        await scheduleNotification(notifyTime, `[上層${floorVal}] ${typeVal}`, "出現");
+        // 上層維持原樣：顯示時間 + 出現
+        await scheduleNotification(notifyTime, `[上層${floorVal}] ${typeVal},將於${timeStr}出現`);
 
         saveTask({
             source: 'v2', floor: floorVal, type: typeVal,
@@ -321,10 +328,8 @@
         });
     }
 
-    // 【修改重點 2】: 接收已經算好的 notifyTime，不再自己減 30 分鐘
-    async function scheduleNotification(notifyTime, msgPrefix, actionText) {
-        // 格式化顯示時間：把通知時間顯示在訊息裡，讓玩家知道幾點要注意
-        const timeStr = notifyTime.toLocaleString('zh-TW', {hour:'2-digit', minute:'2-digit', hour12:false});
+    // 【修改重點 2】: 現在只負責傳送文字，不負責組裝文字
+    async function scheduleNotification(notifyTime, messageContent) {
         const currentGroup = document.getElementById('groupCode').value || "public";
 
         if (notifyTime <= new Date()) return alert("時間已過，無法預約通知！(僅存檔)");
@@ -335,8 +340,7 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     notifyAt: notifyTime.toISOString(),
-                    // 訊息範例：[激戰][王] [狼]LV40,將於 14:30 消失
-                    message: `${msgPrefix},將於${timeStr}${actionText}`,
+                    message: messageContent, // 直接使用傳進來的完整文字
                     group: currentGroup
                 })
             });
