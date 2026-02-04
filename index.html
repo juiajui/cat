@@ -32,7 +32,6 @@
         #addBtn { width: 100%; padding: 16px; background: #3498db; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; margin-top: 15px; cursor: pointer; }
         .form-grid { display: flex; flex-direction: column; gap: 12px; }
         
-        /* 下拉選單樣式優化 */
         select, input { -webkit-appearance: none; padding: 12px; border: 1px solid #dcdfe6; border-radius: 10px; font-size: 16px; width: 100%; background: #fff; height: 45px; }
         label { font-size: 14px; color: #666; font-weight: bold; margin-bottom: -8px; margin-left: 5px; }
 
@@ -87,7 +86,6 @@
 </div>
 
 <script>
-    // 1. 初始化：從手機硬碟讀取舊資料
     let savedTasks = JSON.parse(localStorage.getItem('myTasks')) || [];
 
     function log(msg) {
@@ -108,30 +106,31 @@
 
     async function addTask() {
         const startVal = document.getElementById('startTime').value;
-        const durVal = document.getElementById('duration').value; // 取得字串值
+        const durVal = document.getElementById('duration').value;
 
-        // --- 特殊邏輯：如果選「未知」 ---
+        // --- 未知時間處理 ---
         if (durVal === 'unknown') {
             const newTask = {
                 type: document.getElementById('type').value,
                 lv: document.getElementById('level').value || "?",
-                endStr: "未知" // 直接顯示文字
+                endStr: "未知"
             };
-            
-            // 存檔但不發通知
             savedTasks.unshift(newTask);
             saveToPhone();
             renderTable();
-            alert("✅ 已記錄 (時間未知，無通知)");
-            return; // 結束，不跑下面的通知邏輯
+            alert("✅ 已記錄 (無通知)");
+            return;
         }
 
-        // --- 正常邏輯：數字時間 ---
         const dur = parseFloat(durVal);
         if (!startVal || isNaN(dur)) return alert('請確認時間');
 
+        // 計算結束時間
         const endDate = new Date(new Date(startVal).getTime() + dur * 3600000);
         const notifyTime = new Date(endDate.getTime() - 1800000); // 30 分鐘前
+
+        // 格式化時間字串，例如 "14:30"
+        const timeStr = endDate.toLocaleString('zh-TW', {hour:'2-digit', minute:'2-digit', hour12:false});
 
         if (notifyTime <= new Date()) return alert("時間已過，無法預約通知！");
 
@@ -143,25 +142,25 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     notifyAt: notifyTime.toISOString(),
-                    message: `[${document.getElementById('type').value}] 任務即將結束！`
+                    // 👇 修改處：使用剛剛算好的 timeStr
+                    message: `[${document.getElementById('type').value}] 於 ${timeStr} 即將消失！`
                 })
             });
 
             const result = await response.json();
             
             if (result.id) {
-                alert("✅ 預約成功！(已存檔)");
+                alert("✅ 預約成功！");
                 
-                // 新增資料到清單並存檔
                 const newTask = {
                     type: document.getElementById('type').value,
                     lv: document.getElementById('level').value || "1",
                     endStr: endDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false})
                 };
                 
-                savedTasks.unshift(newTask); // 加到最前面
-                saveToPhone(); // 寫入硬碟
-                renderTable(); // 刷新畫面
+                savedTasks.unshift(newTask);
+                saveToPhone();
+                renderTable();
 
             } else {
                 log("❌ 後端回報錯誤: " + JSON.stringify(result));
@@ -172,12 +171,10 @@
         }
     }
 
-    // 存檔功能
     function saveToPhone() {
         localStorage.setItem('myTasks', JSON.stringify(savedTasks));
     }
 
-    // 刪除功能
     window.deleteTask = function(index) {
         if(confirm("確定要刪除嗎？")) {
             savedTasks.splice(index, 1);
@@ -186,7 +183,6 @@
         }
     }
 
-    // 渲染表格
     function renderTable() {
         const tbody = document.getElementById('taskBody');
         tbody.innerHTML = ""; 
