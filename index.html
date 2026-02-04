@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>激戰之地助手 (自動刪除版)</title>
+    <title>激戰之地助手</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -42,7 +42,7 @@
         
         .form-grid { display: flex; flex-direction: column; gap: 12px; }
         
-        select, input[type="datetime-local"], input[type="number"] { -webkit-appearance: none; padding: 12px; border: 1px solid #dcdfe6; border-radius: 10px; font-size: 16px; width: 100%; background: #fff; height: 45px; }
+        select, input { -webkit-appearance: none; padding: 12px; border: 1px solid #dcdfe6; border-radius: 10px; font-size: 16px; width: 100%; background: #fff; height: 45px; }
         label { font-size: 14px; color: #666; font-weight: bold; margin-bottom: -8px; margin-left: 5px; }
 
         .time-row { display: flex; gap: 5px; }
@@ -52,11 +52,8 @@
         .radio-group { display: flex; gap: 10px; margin-top: 5px; }
         .radio-option { flex: 1; }
         .radio-option input { display: none; }
-        .radio-option span {
-            display: block; text-align: center; padding: 10px; border: 1px solid #dcdfe6; border-radius: 8px; background: #f8f9fa; color: #666; cursor: pointer; transition: all 0.2s; font-weight: bold;
-        }
+        .radio-option span { display: block; text-align: center; padding: 10px; border: 1px solid #dcdfe6; border-radius: 8px; background: #f8f9fa; color: #666; cursor: pointer; transition: all 0.2s; font-weight: bold; }
         .radio-option input:checked + span { background: #3498db; color: white; border-color: #3498db; }
-        
         .radio-option input[value="激戰"]:checked + span { background: #e74c3c; border-color: #e74c3c; }
         .radio-option input[value="王"]:checked + span { background: #f39c12; border-color: #f39c12; }
         
@@ -69,19 +66,27 @@
         .tag-fierce { background: #e74c3c; } 
         .tag-boss { background: #f39c12; }   
         .tag-upper { background: #9b59b6; }
+        
+        .group-input-area { background: #fff3cd; padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #ffeeba; }
+        .group-input-area p { margin: 0 0 5px 0; font-size: 13px; color: #856404; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>激戰之地助手 v1.0</h2>
+    <h2>激戰之地助手 v1.1</h2>
+    
+    <div class="group-input-area">
+        <p>🔑 群組代碼 (區分通知用)</p>
+        <input type="text" id="groupCode" placeholder="請輸入代碼 (預設: public)" value="public" style="background:white;">
+    </div>
+
+    <button class="btn-ready" onclick="activatePush()">第一步：連線伺服器 (綁定群組)</button>
     
     <div class="tabs">
         <button class="tab-btn active" onclick="switchTab('tab1')">激戰之地</button>
         <button class="tab-btn" onclick="switchTab('tab2')">激戰之地上層</button>
     </div>
-
-    <button class="btn-ready" onclick="activatePush()">第一步：連線伺服器</button>
 
     <div id="tab1" class="tab-content active">
         <div class="form-grid">
@@ -100,26 +105,14 @@
 
             <label>戰況</label>
             <div class="radio-group">
-                <label class="radio-option">
-                    <input type="radio" name="battleMode" value="一般" checked>
-                    <span>一般</span>
-                </label>
-                <label class="radio-option">
-                    <input type="radio" name="battleMode" value="激戰">
-                    <span>🔥 激戰</span>
-                </label>
+                <label class="radio-option"><input type="radio" name="battleMode" value="一般" checked><span>一般</span></label>
+                <label class="radio-option"><input type="radio" name="battleMode" value="激戰"><span>🔥 激戰</span></label>
             </div>
 
-            <label>階級 (點擊切換範圍)</label>
+            <label>階級</label>
             <div class="radio-group">
-                <label class="radio-option">
-                    <input type="radio" name="rankType" value="小怪" checked onclick="updateLevelOptions('小怪')">
-                    <span>小怪 (1-30)</span>
-                </label>
-                <label class="radio-option">
-                    <input type="radio" name="rankType" value="王" onclick="updateLevelOptions('王')">
-                    <span>👑 王 (20-40)</span>
-                </label>
+                <label class="radio-option"><input type="radio" name="rankType" value="小怪" checked onclick="updateLevelOptions('小怪')"><span>小怪 (1-30)</span></label>
+                <label class="radio-option"><input type="radio" name="rankType" value="王" onclick="updateLevelOptions('王')"><span>👑 王 (20-40)</span></label>
             </div>
 
             <label>任務類型</label>
@@ -129,11 +122,10 @@
                 <option value="🍎 食物">🍎 食物</option>
                 <option value="🐱 貓">🐱 貓</option>
             </select>
-
             <label>等級</label>
             <select id="level_v1"></select>
 
-            <button id="addBtn" onclick="addTaskV1()">新增預約(激戰之地)</button>
+            <button id="addBtn" onclick="addTaskV1()">新增預約 (激戰之地)</button>
         </div>
     </div>
 
@@ -141,39 +133,19 @@
         <div class="form-grid">
             <label>開始時間</label>
             <input type="datetime-local" id="startTime_v2">
-
             <label>位置</label>
             <div class="radio-group">
-                <label class="radio-option">
-                    <input type="radio" name="floorType" value="1F" checked onclick="updateUpperFloorTypes()">
-                    <span>上層 1F</span>
-                </label>
-                <label class="radio-option">
-                    <input type="radio" name="floorType" value="2F" onclick="updateUpperFloorTypes()">
-                    <span>上層 2F</span>
-                </label>
+                <label class="radio-option"><input type="radio" name="floorType" value="1F" checked onclick="updateUpperFloorTypes()"><span>上層 1F</span></label>
+                <label class="radio-option"><input type="radio" name="floorType" value="2F" onclick="updateUpperFloorTypes()"><span>上層 2F</span></label>
             </div>
-
             <label>任務類型</label>
-            <select id="type_v2">
-                </select>
-
-            <label>到期倒數 (時:分:秒)</label>
+            <select id="type_v2"></select>
+            <label>到期倒數</label>
             <div class="time-row">
-                <div class="time-col">
-                    <span>小時 (8-40)</span>
-                    <select id="dur_h"></select>
-                </div>
-                <div class="time-col">
-                    <span>分鐘 (0-59)</span>
-                    <select id="dur_m"></select>
-                </div>
-                <div class="time-col">
-                    <span>秒 (0-59)</span>
-                    <select id="dur_s"></select>
-                </div>
+                <div class="time-col"><span>小時 (8-40)</span><select id="dur_h"></select></div>
+                <div class="time-col"><span>分鐘 (0-59)</span><select id="dur_m"></select></div>
+                <div class="time-col"><span>秒 (0-59)</span><select id="dur_s"></select></div>
             </div>
-
             <button id="addBtn" onclick="addTaskV2()" style="background:#9b59b6;">新增預約 (上層)</button>
         </div>
     </div>
@@ -184,14 +156,13 @@
             <tbody id="taskBody"></tbody>
         </table>
     </div>
-
     <div id="debug-log">等待操作...<br></div>
 </div>
 
 <script>
     let savedTasks = JSON.parse(localStorage.getItem('myTasks')) || [];
+    let savedGroup = localStorage.getItem('myGroupCode') || "public";
     
-    // --- 共用功能 ---
     function log(msg) {
         const div = document.getElementById('debug-log');
         div.innerHTML += "> " + msg + "<br>";
@@ -207,19 +178,20 @@
     }
 
     async function activatePush() {
+        const groupVal = document.getElementById('groupCode').value || "public";
+        localStorage.setItem('myGroupCode', groupVal);
+
         OneSignalDeferred.push(async function(OneSignal) {
-            log("連線中...");
+            log(`連線群組: ${groupVal}...`);
             await OneSignal.Notifications.requestPermission();
-            await OneSignal.User.addTag("task_user", "yes");
-            log("✅ 連線成功");
-            alert("✅ 連線成功");
+            await OneSignal.User.addTag("my_group", groupVal);
+            log(`✅ 連線成功 (頻道: ${groupVal})`);
+            alert(`✅ 連線成功！\n您現在位於「${groupVal}」頻道`);
         });
     }
 
-    function saveToPhone() {
-        localStorage.setItem('myTasks', JSON.stringify(savedTasks));
-    }
-
+    function saveToPhone() { localStorage.setItem('myTasks', JSON.stringify(savedTasks)); }
+    
     window.deleteTask = function(index) {
         if(confirm("確定要刪除嗎？")) {
             savedTasks.splice(index, 1);
@@ -227,20 +199,14 @@
             renderTable();
         }
     }
-
-    // --- 自動刪除過期任務的功能 ---
+    
     function autoCleanExpired() {
         const now = Date.now();
         const initialCount = savedTasks.length;
-
-        // 篩選：保留 (是未知時間) 或者 (時間還沒到) 的任務
         savedTasks = savedTasks.filter(task => {
-            if (task.endStr === "未知") return true; // 未知的保留
-            if (!task.endTime) return true; // 舊資料(沒時間戳記的)保留，避免誤刪
-            return task.endTime > now; // 未來的保留，過去的(false)會被刪除
+            if (task.endStr === "未知" || !task.endTime) return true;
+            return task.endTime > now;
         });
-
-        // 如果數量有變少，代表有東西被刪掉了，要存檔並重畫表格
         if (savedTasks.length !== initialCount) {
             saveToPhone();
             renderTable();
@@ -248,9 +214,8 @@
         }
     }
 
-    // --- 分頁 1 邏輯 (激戰 1F) ---
+    // --- 輔助函式 ---
     const LEVEL_RANGES = { '小怪': { min: 1, max: 30 }, '王': { min: 20, max: 40 } };
-
     function updateLevelOptions(rankType) {
         const select = document.getElementById('level_v1');
         select.innerHTML = "";
@@ -262,37 +227,7 @@
         }
     }
 
-    async function addTaskV1() {
-        const startVal = document.getElementById('startTime_v1').value;
-        const durVal = document.getElementById('duration_v1').value;
-        const typeVal = document.getElementById('type_v1').value;
-        const levelVal = document.getElementById('level_v1').value;
-        const modeVal = document.querySelector('input[name="battleMode"]:checked').value;
-        const rankVal = document.querySelector('input[name="rankType"]:checked').value;
-
-        if (durVal === 'unknown') {
-            saveTask({ source:'v1', mode: modeVal, rank: rankVal, type: typeVal, lv: levelVal, endStr: "未知" });
-            return;
-        }
-
-        const endDate = new Date(new Date(startVal).getTime() + parseFloat(durVal) * 3600000);
-        
-        await scheduleNotification(endDate, `[${modeVal === "激戰" ? "激戰" : ""}${rankVal === "王" ? "王" : ""}] [${typeVal}]LV${levelVal}`, "消失");
-        
-        saveTask({
-            source: 'v1',
-            mode: modeVal, rank: rankVal, type: typeVal, lv: levelVal,
-            endTime: endDate.getTime(), // ⚠️ 存入時間戳記供自動刪除用
-            endStr: endDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false})
-        });
-    }
-
-    // --- 分頁 2 邏輯 (激戰之地上層) ---
-    const UPPER_TYPES = {
-        '1F': ['🦀 螃蟹', '🐝 蜜蜂', '🐇 兔子', '🐀 老鼠'],
-        '2F': ['😱 驚驚', '🧶 手工', '🧸 玩具', '🍌 香蕉']
-    };
-
+    const UPPER_TYPES = { '1F': ['🦀 螃蟹', '🐝 蜜蜂', '🐇 兔子', '🐀 老鼠'], '2F': ['😱 驚驚', '🧶 手工', '🧸 玩具', '🍌 香蕉'] };
     function updateUpperFloorTypes() {
         const floor = document.querySelector('input[name="floorType"]:checked').value;
         const select = document.getElementById('type_v2');
@@ -308,40 +243,89 @@
         const selH = document.getElementById('dur_h');
         const selM = document.getElementById('dur_m');
         const selS = document.getElementById('dur_s');
-
         for(let i=8; i<=40; i++) selH.add(new Option(i, i));
         for(let i=0; i<=59; i++) selM.add(new Option(i, i));
         for(let i=0; i<=59; i++) selS.add(new Option(i, i));
+    }
+
+    // --- 核心發送與儲存 ---
+    
+    // 【修改重點 1】: 1F 任務的新增邏輯
+    async function addTaskV1() {
+        const startVal = document.getElementById('startTime_v1').value;
+        const durVal = document.getElementById('duration_v1').value;
+        const typeVal = document.getElementById('type_v1').value;
+        const levelVal = document.getElementById('level_v1').value;
+        const modeVal = document.querySelector('input[name="battleMode"]:checked').value;
+        const rankVal = document.querySelector('input[name="rankType"]:checked').value;
+
+        if (durVal === 'unknown') {
+            saveTask({ source:'v1', mode: modeVal, rank: rankVal, type: typeVal, lv: levelVal, endStr: "未知" });
+            return;
+        }
+
+        const startDate = new Date(startVal);
+        const durationMs = parseFloat(durVal) * 3600000;
+        
+        // 1. 計算畫面顯示的結束時間 (根據使用者選的持續時間)
+        const visualEndDate = new Date(startDate.getTime() + durationMs);
+
+        // 2. 計算通知觸發時間
+        let notifyTime;
+        if (modeVal === "激戰" && rankVal === "王") {
+            // 【特殊規則】激戰+王：通知時間 = 開始時間 + 3.5 小時
+            notifyTime = new Date(startDate.getTime() + (3.5 * 3600000));
+            log("⚠️ 激戰王模式: 設定通知為 3.5 小時後");
+        } else {
+            // 一般規則：結束時間 - 30分鐘
+            notifyTime = new Date(visualEndDate.getTime() - 1800000);
+        }
+
+        // 3. 處理通知文字前綴 (移除空括號問題)
+        let prefix = "";
+        if (modeVal === "激戰") prefix += "[激戰]";
+        if (rankVal === "王") prefix += "[王]";
+        
+        // 呼叫發送 (傳入計算好的 notifyTime)
+        await scheduleNotification(notifyTime, `${prefix} [${typeVal}]LV${levelVal}`, "消失");
+        
+        // 存檔 (存的是 visualEndDate，讓表格顯示正常持續時間)
+        saveTask({
+            source: 'v1', mode: modeVal, rank: rankVal, type: typeVal, lv: levelVal,
+            endTime: visualEndDate.getTime(), // 自動刪除用
+            endStr: visualEndDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false})
+        });
     }
 
     async function addTaskV2() {
         const startVal = document.getElementById('startTime_v2').value;
         const floorVal = document.querySelector('input[name="floorType"]:checked').value;
         const typeVal = document.getElementById('type_v2').value;
-        
         const h = parseInt(document.getElementById('dur_h').value);
         const m = parseInt(document.getElementById('dur_m').value);
         const s = parseInt(document.getElementById('dur_s').value);
 
         if (!startVal) return alert('請確認時間');
-
         const addMs = (h * 3600 + m * 60 + s) * 1000;
         const endDate = new Date(new Date(startVal).getTime() + addMs);
         
-        await scheduleNotification(endDate, `[上層${floorVal}] ${typeVal}`, "出現");
+        // 上層規則沒變：結束前 30 分鐘通知
+        const notifyTime = new Date(endDate.getTime() - 1800000);
+
+        await scheduleNotification(notifyTime, `[上層${floorVal}] ${typeVal}`, "出現");
 
         saveTask({
-            source: 'v2',
-            floor: floorVal, type: typeVal,
-            endTime: endDate.getTime(), // ⚠️ 存入時間戳記供自動刪除用
+            source: 'v2', floor: floorVal, type: typeVal,
+            endTime: endDate.getTime(),
             endStr: endDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false})
         });
     }
 
-    // --- 核心預約 & 儲存 ---
-    async function scheduleNotification(endDate, msgPrefix, actionText) {
-        const notifyTime = new Date(endDate.getTime() - 1800000); 
-        const timeStr = endDate.toLocaleString('zh-TW', {hour:'2-digit', minute:'2-digit', hour12:false});
+    // 【修改重點 2】: 接收已經算好的 notifyTime，不再自己減 30 分鐘
+    async function scheduleNotification(notifyTime, msgPrefix, actionText) {
+        // 格式化顯示時間：把通知時間顯示在訊息裡，讓玩家知道幾點要注意
+        const timeStr = notifyTime.toLocaleString('zh-TW', {hour:'2-digit', minute:'2-digit', hour12:false});
+        const currentGroup = document.getElementById('groupCode').value || "public";
 
         if (notifyTime <= new Date()) return alert("時間已過，無法預約通知！(僅存檔)");
 
@@ -351,7 +335,9 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     notifyAt: notifyTime.toISOString(),
-                    message: `${msgPrefix},將於${timeStr}${actionText}`
+                    // 訊息範例：[激戰][王] [狼]LV40,將於 14:30 消失
+                    message: `${msgPrefix},將於${timeStr}${actionText}`,
+                    group: currentGroup
                 })
             });
             const result = await response.json();
@@ -369,10 +355,8 @@
     function renderTable() {
         const tbody = document.getElementById('taskBody');
         tbody.innerHTML = ""; 
-        
         savedTasks.forEach((task, index) => {
             let infoHTML = "";
-            
             if (task.source === 'v2') {
                 infoHTML = `<span class="tag tag-upper">${task.floor}</span> ${task.type}`;
             } else {
@@ -381,13 +365,8 @@
                 if (task.rank === "王") tags += `<span class="tag tag-boss">王</span>`;
                 infoHTML = `${tags} ${task.type} <small>(Lv.${task.lv})</small>`;
             }
-
             const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${infoHTML}</td>
-                <td style="font-size:12px">${task.endStr}</td>
-                <td><button onclick="deleteTask(${index})" style="color:red; border:none; background:none; font-weight:bold;">刪</button></td>
-            `;
+            row.innerHTML = `<td>${infoHTML}</td><td style="font-size:12px">${task.endStr}</td><td><button onclick="deleteTask(${index})" style="color:red; border:none; background:none; font-weight:bold;">刪</button></td>`;
             tbody.appendChild(row);
         });
     }
@@ -396,23 +375,18 @@
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
         const isoNow = now.toISOString().slice(0,16); 
-
         document.getElementById('startTime_v1').value = isoNow;
         document.getElementById('startTime_v2').value = isoNow;
+        
+        document.getElementById('groupCode').value = savedGroup;
 
         updateLevelOptions('小怪');
         updateUpperFloorTypes();
         initTimeSelectors();
-        
-        // 1. 一進來先執行一次清理
         autoCleanExpired(); 
-        
-        // 2. 之後每 30 秒執行一次清理
         setInterval(autoCleanExpired, 30000);
-
         renderTable(); 
     };
 </script>
 </body>
 </html>
-
