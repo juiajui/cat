@@ -187,7 +187,7 @@
 
     <div class="table-container">
         <table>
-            <thead><tr><th>資訊</th><th>結束時間</th><th>操作</th></tr></thead>
+            <thead><tr><th>資訊</th><th>預計時間</th><th>操作</th></tr></thead>
             <tbody id="taskBody"></tbody>
         </table>
     </div>
@@ -209,7 +209,6 @@
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
-        // 按鈕樣式
         const btnIndex = tabId === 'tab1' ? 0 : 1;
         document.querySelectorAll('.tab-btn')[btnIndex].classList.add('active');
     }
@@ -264,7 +263,9 @@
         }
 
         const endDate = new Date(new Date(startVal).getTime() + parseFloat(durVal) * 3600000);
-        await scheduleNotification(endDate, `[${modeVal === "激戰" ? "激戰" : ""}${rankVal === "王" ? "王" : ""}] [${typeVal}]LV${levelVal}`);
+        
+        // 修改處：傳入 "消失" 作為動作文字
+        await scheduleNotification(endDate, `[${modeVal === "激戰" ? "激戰" : ""}${rankVal === "王" ? "王" : ""}] [${typeVal}]LV${levelVal}`, "消失");
         
         saveTask({
             source: 'v1',
@@ -311,12 +312,11 @@
 
         if (!startVal) return alert('請確認時間');
 
-        // 計算精確的結束時間
         const addMs = (h * 3600 + m * 60 + s) * 1000;
         const endDate = new Date(new Date(startVal).getTime() + addMs);
         
-        // 呼叫預約
-        await scheduleNotification(endDate, `[上層${floorVal}] ${typeVal}`);
+        // 修改處：傳入 "出現" 作為動作文字
+        await scheduleNotification(endDate, `[上層${floorVal}] ${typeVal}`, "出現");
 
         saveTask({
             source: 'v2',
@@ -326,7 +326,8 @@
     }
 
     // --- 核心預約 & 儲存 ---
-    async function scheduleNotification(endDate, msgPrefix) {
+    // 修改處：新增 actionText 參數來決定是「消失」還是「出現」
+    async function scheduleNotification(endDate, msgPrefix, actionText) {
         const notifyTime = new Date(endDate.getTime() - 1800000); // 30 分鐘前
         const timeStr = endDate.toLocaleString('zh-TW', {hour:'2-digit', minute:'2-digit', hour12:false});
 
@@ -338,7 +339,8 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     notifyAt: notifyTime.toISOString(),
-                    message: `${msgPrefix},將於${timeStr}消失`
+                    // 訊息格式：[前綴]...將於HH:mm[動作]
+                    message: `${msgPrefix},將於${timeStr}${actionText}`
                 })
             });
             const result = await response.json();
@@ -359,12 +361,11 @@
         
         savedTasks.forEach((task, index) => {
             let infoHTML = "";
-            
+            let timeSuffix = ""; // 可以選擇性顯示 (消失/出現) 但表格精簡就好
+
             if (task.source === 'v2') {
-                // 上層顯示樣式
                 infoHTML = `<span class="tag tag-upper">${task.floor}</span> ${task.type}`;
             } else {
-                // 1F 顯示樣式
                 let tags = "";
                 if (task.mode === "激戰") tags += `<span class="tag tag-fierce">激</span>`;
                 if (task.rank === "王") tags += `<span class="tag tag-boss">王</span>`;
@@ -381,12 +382,10 @@
         });
     }
 
-    // --- 初始化 ---
     window.onload = function() {
         const now = new Date();
         now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-        const isoNow = now.toISOString().slice(0,16); // 只取到分鐘
-        const isoNowSec = now.toISOString().slice(0,19); // 取到秒 (雖然 input datetime-local 預設不顯示秒，但我們給個初值)
+        const isoNow = now.toISOString().slice(0,16); 
 
         document.getElementById('startTime_v1').value = isoNow;
         document.getElementById('startTime_v2').value = isoNow;
