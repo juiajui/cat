@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>任務助手 (分頁版)</title>
+    <title>任務助手 (自動刪除版)</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -29,12 +29,10 @@
         .container { width: 100%; max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
         h2 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 15px; font-size: 1.2rem; text-align: center; }
         
-        /* 分頁按鈕樣式 */
         .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
         .tab-btn { flex: 1; padding: 12px; border: none; background: #e0e0e0; border-radius: 8px; font-weight: bold; color: #666; cursor: pointer; }
         .tab-btn.active { background: #3498db; color: white; box-shadow: 0 4px 6px rgba(52, 152, 219, 0.3); }
         
-        /* 分頁內容控制 */
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.3s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -44,16 +42,13 @@
         
         .form-grid { display: flex; flex-direction: column; gap: 12px; }
         
-        /* 輸入框樣式 */
         select, input[type="datetime-local"], input[type="number"] { -webkit-appearance: none; padding: 12px; border: 1px solid #dcdfe6; border-radius: 10px; font-size: 16px; width: 100%; background: #fff; height: 45px; }
         label { font-size: 14px; color: #666; font-weight: bold; margin-bottom: -8px; margin-left: 5px; }
 
-        /* 時間三欄式佈局 */
         .time-row { display: flex; gap: 5px; }
         .time-col { flex: 1; }
         .time-col span { display: block; font-size: 12px; text-align: center; color: #999; margin-bottom: 2px; }
 
-        /* Radio Button 樣式 */
         .radio-group { display: flex; gap: 10px; margin-top: 5px; }
         .radio-option { flex: 1; }
         .radio-option input { display: none; }
@@ -62,11 +57,9 @@
         }
         .radio-option input:checked + span { background: #3498db; color: white; border-color: #3498db; }
         
-        /* 特殊色 */
         .radio-option input[value="激戰"]:checked + span { background: #e74c3c; border-color: #e74c3c; }
         .radio-option input[value="王"]:checked + span { background: #f39c12; border-color: #f39c12; }
         
-        /* 表格樣式 */
         #debug-log { margin-top: 20px; padding: 10px; background: #1a1a1a; color: #00ff00; font-family: monospace; font-size: 11px; border-radius: 8px; height: 120px; overflow-y: auto; }
         .table-container { width: 100%; overflow-x: auto; margin-top: 20px; }
         table { width: 100%; border-collapse: collapse; min-width: 300px; font-size: 13px; }
@@ -75,7 +68,7 @@
         .tag { font-size: 11px; padding: 2px 4px; border-radius: 4px; color: white; margin-right: 2px; }
         .tag-fierce { background: #e74c3c; } 
         .tag-boss { background: #f39c12; }   
-        .tag-upper { background: #9b59b6; } /* 紫色給上層 */
+        .tag-upper { background: #9b59b6; }
     </style>
 </head>
 <body>
@@ -235,6 +228,26 @@
         }
     }
 
+    // --- 自動刪除過期任務的功能 ---
+    function autoCleanExpired() {
+        const now = Date.now();
+        const initialCount = savedTasks.length;
+
+        // 篩選：保留 (是未知時間) 或者 (時間還沒到) 的任務
+        savedTasks = savedTasks.filter(task => {
+            if (task.endStr === "未知") return true; // 未知的保留
+            if (!task.endTime) return true; // 舊資料(沒時間戳記的)保留，避免誤刪
+            return task.endTime > now; // 未來的保留，過去的(false)會被刪除
+        });
+
+        // 如果數量有變少，代表有東西被刪掉了，要存檔並重畫表格
+        if (savedTasks.length !== initialCount) {
+            saveToPhone();
+            renderTable();
+            log("🧹 已自動清除過期任務");
+        }
+    }
+
     // --- 分頁 1 邏輯 (激戰 1F) ---
     const LEVEL_RANGES = { '小怪': { min: 1, max: 30 }, '王': { min: 20, max: 40 } };
 
@@ -264,12 +277,12 @@
 
         const endDate = new Date(new Date(startVal).getTime() + parseFloat(durVal) * 3600000);
         
-        // 修改處：傳入 "消失" 作為動作文字
         await scheduleNotification(endDate, `[${modeVal === "激戰" ? "激戰" : ""}${rankVal === "王" ? "王" : ""}] [${typeVal}]LV${levelVal}`, "消失");
         
         saveTask({
             source: 'v1',
             mode: modeVal, rank: rankVal, type: typeVal, lv: levelVal,
+            endTime: endDate.getTime(), // ⚠️ 存入時間戳記供自動刪除用
             endStr: endDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false})
         });
     }
@@ -315,20 +328,19 @@
         const addMs = (h * 3600 + m * 60 + s) * 1000;
         const endDate = new Date(new Date(startVal).getTime() + addMs);
         
-        // 修改處：傳入 "出現" 作為動作文字
         await scheduleNotification(endDate, `[上層${floorVal}] ${typeVal}`, "出現");
 
         saveTask({
             source: 'v2',
             floor: floorVal, type: typeVal,
+            endTime: endDate.getTime(), // ⚠️ 存入時間戳記供自動刪除用
             endStr: endDate.toLocaleString('zh-TW', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false})
         });
     }
 
     // --- 核心預約 & 儲存 ---
-    // 修改處：新增 actionText 參數來決定是「消失」還是「出現」
     async function scheduleNotification(endDate, msgPrefix, actionText) {
-        const notifyTime = new Date(endDate.getTime() - 1800000); // 30 分鐘前
+        const notifyTime = new Date(endDate.getTime() - 1800000); 
         const timeStr = endDate.toLocaleString('zh-TW', {hour:'2-digit', minute:'2-digit', hour12:false});
 
         if (notifyTime <= new Date()) return alert("時間已過，無法預約通知！(僅存檔)");
@@ -339,7 +351,6 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     notifyAt: notifyTime.toISOString(),
-                    // 訊息格式：[前綴]...將於HH:mm[動作]
                     message: `${msgPrefix},將於${timeStr}${actionText}`
                 })
             });
@@ -361,8 +372,7 @@
         
         savedTasks.forEach((task, index) => {
             let infoHTML = "";
-            let timeSuffix = ""; // 可以選擇性顯示 (消失/出現) 但表格精簡就好
-
+            
             if (task.source === 'v2') {
                 infoHTML = `<span class="tag tag-upper">${task.floor}</span> ${task.type}`;
             } else {
@@ -393,6 +403,13 @@
         updateLevelOptions('小怪');
         updateUpperFloorTypes();
         initTimeSelectors();
+        
+        // 1. 一進來先執行一次清理
+        autoCleanExpired(); 
+        
+        // 2. 之後每 30 秒執行一次清理
+        setInterval(autoCleanExpired, 30000);
+
         renderTable(); 
     };
 </script>
