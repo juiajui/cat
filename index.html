@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>激戰之地助手</title>
+    <title>激戰之地助手 v1.3</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -74,7 +74,7 @@
 <body>
 
 <div class="container">
-    <h2>激戰之地助手 v1.2</h2>
+    <h2>激戰之地助手 v1.3</h2>
     
     <div class="group-input-area">
         <p>🔑 群組代碼 (區分通知用)</p>
@@ -247,9 +247,6 @@
         for(let i=0; i<=59; i++) selS.add(new Option(i, i));
     }
 
-    // --- 核心發送與儲存 ---
-    
-    // 【修改重點 1】: 1F 任務的訊息處理
     async function addTaskV1() {
         const startVal = document.getElementById('startTime_v1').value;
         const durVal = document.getElementById('duration_v1').value;
@@ -264,12 +261,9 @@
         }
 
         const startDate = new Date(startVal);
-        const durationMs = parseFloat(durVal) * 3600000;
-        
-        // 1. visualEndDate: 表格上顯示的時間
-        const visualEndDate = new Date(startDate.getTime() + durationMs);
+        const durationHours = parseFloat(durVal);
+        const visualEndDate = new Date(startDate.getTime() + durationHours * 3600000);
 
-        // 2. 組合文字前綴
         let prefix = "";
         if (modeVal === "激戰") prefix += "[激戰]";
         if (rankVal === "王") prefix += "[王]";
@@ -277,23 +271,31 @@
         let notifyTime;
         let finalMessage = "";
 
-        // 3. 判斷邏輯
+        // 【修改核心邏輯】針對不同持續時間調整通知發送時機
         if (modeVal === "激戰" && rankVal === "王") {
-            // === 激戰王模式 ===
-            // 通知時間 = 開始時間 + 3.5 小時
+            // 激戰王固定：開始後 3.5 小時通知
             notifyTime = new Date(startDate.getTime() + (3.5 * 3600000));
-            // 訊息 = 指定的警語 (不顯示時間)
             finalMessage = `${prefix} [${typeVal}]LV${levelVal} 即將4小時隨時會消失`;
         } else {
-            // === 一般模式 ===
-            // 通知時間 = 結束時間 - 30 分鐘
-            notifyTime = new Date(visualEndDate.getTime() - 1800000);
-            // 訊息 = 顯示幾點幾分消失
+            // 一般任務 (小怪或非激戰王)
+            if (durationHours === 1) {
+                // 1 小時任務：開始後 26 分鐘通知
+                notifyTime = new Date(startDate.getTime() + (26 * 60000));
+            } else if (durationHours === 3) {
+                // 3 小時任務：開始後 1 小時 31 分鐘通知 (91 分鐘)
+                notifyTime = new Date(startDate.getTime() + (91 * 60000));
+            } else if (durationHours === 6) {
+                // 6 小時任務：開始後 4 小時 21 分鐘通知 (261 分鐘)
+                notifyTime = new Date(startDate.getTime() + (261 * 60000));
+            } else {
+                // 其餘 (12h, 24h)：結束前 30 分鐘通知
+                notifyTime = new Date(visualEndDate.getTime() - 1800000);
+            }
+            
             const timeStr = visualEndDate.toLocaleString('zh-TW', {hour:'2-digit', minute:'2-digit', hour12:false});
             finalMessage = `${prefix} [${typeVal}]LV${levelVal},將於${timeStr}消失`;
         }
         
-        // 傳送完整的 finalMessage
         await scheduleNotification(notifyTime, finalMessage);
         
         saveTask({
@@ -318,7 +320,6 @@
         const notifyTime = new Date(endDate.getTime() - 1800000);
         const timeStr = endDate.toLocaleString('zh-TW', {hour:'2-digit', minute:'2-digit', hour12:false});
 
-        // 上層維持原樣：顯示時間 + 出現
         await scheduleNotification(notifyTime, `[上層${floorVal}] ${typeVal},將於${timeStr}出現`);
 
         saveTask({
@@ -328,7 +329,6 @@
         });
     }
 
-    // 【修改重點 2】: 現在只負責傳送文字，不負責組裝文字
     async function scheduleNotification(notifyTime, messageContent) {
         const currentGroup = document.getElementById('groupCode').value || "public";
 
@@ -340,7 +340,7 @@
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     notifyAt: notifyTime.toISOString(),
-                    message: messageContent, // 直接使用傳進來的完整文字
+                    message: messageContent,
                     group: currentGroup
                 })
             });
