@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>激戰之地助手 v1.3</title>
+    <title>激戰之地助手 v1.4</title>
     
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -54,7 +54,12 @@
         .radio-option input { display: none; }
         .radio-option span { display: block; text-align: center; padding: 10px; border: 1px solid #dcdfe6; border-radius: 8px; background: #f8f9fa; color: #666; cursor: pointer; transition: all 0.2s; font-weight: bold; }
         .radio-option input:checked + span { background: #3498db; color: white; border-color: #3498db; }
-        .radio-option input[value="激戰"]:checked + span { background: #e74c3c; border-color: #e74c3c; }
+        
+        /* 戰況三種顏色的特別處理 */
+        .radio-option input[value="10"]:checked + span { background: #3498db; border-color: #3498db; }
+        .radio-option input[value="185"]:checked + span { background: #e74c3c; border-color: #e74c3c; }
+        .radio-option input[value="324"]:checked + span { background: #9b59b6; border-color: #9b59b6; }
+        
         .radio-option input[value="王"]:checked + span { background: #f39c12; border-color: #f39c12; }
         
         #debug-log { margin-top: 20px; padding: 10px; background: #1a1a1a; color: #00ff00; font-family: monospace; font-size: 11px; border-radius: 8px; height: 120px; overflow-y: auto; }
@@ -63,7 +68,9 @@
         td, th { padding: 10px; border-bottom: 1px solid #eee; text-align: left; }
         
         .tag { font-size: 11px; padding: 2px 4px; border-radius: 4px; color: white; margin-right: 2px; }
-        .tag-fierce { background: #e74c3c; } 
+        .tag-10 { background: #3498db; } 
+        .tag-185 { background: #e74c3c; } 
+        .tag-324 { background: #9b59b6; } 
         .tag-boss { background: #f39c12; }   
         .tag-upper { background: #9b59b6; }
         
@@ -74,7 +81,7 @@
 <body>
 
 <div class="container">
-    <h2>激戰之地助手 v1.3</h2>
+    <h2>激戰之地助手 v1.4</h2>
     
     <div class="group-input-area">
         <p>🔑 群組代碼 (區分通知用)</p>
@@ -105,8 +112,9 @@
 
             <label>戰況</label>
             <div class="radio-group">
-                <label class="radio-option"><input type="radio" name="battleMode" value="一般" checked><span>一般</span></label>
-                <label class="radio-option"><input type="radio" name="battleMode" value="激戰"><span>🔥 激戰</span></label>
+                <label class="radio-option"><input type="radio" name="battleMode" value="10" checked><span>10</span></label>
+                <label class="radio-option"><input type="radio" name="battleMode" value="185"><span>185</span></label>
+                <label class="radio-option"><input type="radio" name="battleMode" value="324"><span>324</span></label>
             </div>
 
             <label>階級</label>
@@ -252,7 +260,7 @@
         const durVal = document.getElementById('duration_v1').value;
         const typeVal = document.getElementById('type_v1').value;
         const levelVal = document.getElementById('level_v1').value;
-        const modeVal = document.querySelector('input[name="battleMode"]:checked').value;
+        const modeVal = document.querySelector('input[name="battleMode"]:checked').value; // 10, 185, 324
         const rankVal = document.querySelector('input[name="rankType"]:checked').value;
 
         if (durVal === 'unknown') {
@@ -264,31 +272,26 @@
         const durationHours = parseFloat(durVal);
         const visualEndDate = new Date(startDate.getTime() + durationHours * 3600000);
 
-        let prefix = "";
-        if (modeVal === "激戰") prefix += "[激戰]";
+        // 通知前綴改為 [代碼]
+        let prefix = `[${modeVal}]`;
         if (rankVal === "王") prefix += "[王]";
         
         let notifyTime;
         let finalMessage = "";
 
-        // 【修改核心邏輯】針對不同持續時間調整通知發送時機
-        if (modeVal === "激戰" && rankVal === "王") {
-            // 激戰王固定：開始後 3.5 小時通知
+        // 判斷邏輯：如果是王且不是選10 (意即選了 185 或 324)
+        if (rankVal === "王" && modeVal !== "10") {
             notifyTime = new Date(startDate.getTime() + (3.5 * 3600000));
             finalMessage = `${prefix} [${typeVal}]LV${levelVal} 即將4小時隨時會消失`;
         } else {
-            // 一般任務 (小怪或非激戰王)
+            // 一般小怪或 10 號王
             if (durationHours === 1) {
-                // 1 小時任務：開始後 26 分鐘通知
                 notifyTime = new Date(startDate.getTime() + (26 * 60000));
             } else if (durationHours === 3) {
-                // 3 小時任務：開始後 1 小時 31 分鐘通知 (91 分鐘)
                 notifyTime = new Date(startDate.getTime() + (91 * 60000));
             } else if (durationHours === 6) {
-                // 6 小時任務：開始後 4 小時 21 分鐘通知 (261 分鐘)
                 notifyTime = new Date(startDate.getTime() + (261 * 60000));
             } else {
-                // 其餘 (12h, 24h)：結束前 30 分鐘通知
                 notifyTime = new Date(visualEndDate.getTime() - 1800000);
             }
             
@@ -365,7 +368,10 @@
                 infoHTML = `<span class="tag tag-upper">${task.floor}</span> ${task.type}`;
             } else {
                 let tags = "";
-                if (task.mode === "激戰") tags += `<span class="tag tag-fierce">激</span>`;
+                // 根據模式加上不同的 tag 顏色
+                if (task.mode === "10") tags += `<span class="tag tag-10">10</span>`;
+                if (task.mode === "185") tags += `<span class="tag tag-185">185</span>`;
+                if (task.mode === "324") tags += `<span class="tag tag-324">324</span>`;
                 if (task.rank === "王") tags += `<span class="tag tag-boss">王</span>`;
                 infoHTML = `${tags} ${task.type} <small>(Lv.${task.lv})</small>`;
             }
